@@ -30,7 +30,6 @@ setup(
             'pcd_publisher = analytic_grasp_ros.pcd_publisher:main',
             'grasp_selection = analytic_grasp_ros.grasp_selection:main',
             'calibration_publisher = analytic_grasp_ros.calibration_publisher:main',
-            'temp_slider = analytic_grasp_ros.temp_slider:main',
         ],
     },
 )
