@@ -188,6 +188,7 @@ class CalibrationNode(Node):
         elif self.mode == "cal_handeye":
             # TODO: this may be hard to align with the 
             # forward kinematics
+            # probably want to use a message filter (TODO)
             pass
 
     
