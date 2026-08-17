@@ -5,13 +5,31 @@ import yaml
 import numpy as np
 from scipy.spatial.transform import Rotation as Rot
 import cv2 as cv
-from sensor_msgs.msg import Image, CameraInfo
+from cv_bridge import CvBridge
 
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import TransformStamped, Transform
 from tf2_ros import Buffer, TransformListener, TransformBroadcaster
 from rclpy.qos import qos_profile_sensor_data
+from sensor_msgs.msg import Image, CameraInfo
+
+
+## chessboard setup
+CHESS_CRITERIA = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+# Number of INNER corners, not number of squares
+BOARD_SIZE = (9, 6)
+# Physical size of one square [m]
+SQUARE_SIZE = 0.0217
+# 3D coordinates of chessboard corners.
+# Board lies in the Z=0 plane.
+CHESS_OBJ_PTS = np.zeros((BOARD_SIZE[0] * BOARD_SIZE[1], 3), np.float32)
+CHESS_OBJ_PTS[:, :2] = np.mgrid[
+    0:BOARD_SIZE[0],
+    0:BOARD_SIZE[1]
+].T.reshape(-1, 2)
+CHESS_OBJ_PTS *= SQUARE_SIZE
+
 
 ### HELPERS
 def T(R, t):
@@ -62,13 +80,18 @@ class CalibrationNode(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.broadcaster = TransformBroadcaster(self)
+        self.bridge = CvBridge()
 
         # the transformers we are solving for
-        self.T_FcamBoard = None
-        self.T_AcamBoard = None
+        self.T_FcamBoard = np.eye(4)
+        self.T_AcamBoard = np.eye(4)
         self.T_AcamGripper = None
         self.K = {}
         self.D = {}
+
+        # helpers for the camera
+        self.poses = {"AcamBoard": [], "BaseGripper": []}
+        self.handeye_updated = False
 
         # image subscriber
         self.sub_fcam_info = self.create_subscription(
@@ -177,25 +200,149 @@ class CalibrationNode(Node):
 
     ## Camera image subscribers!
     def cb_fcam(self, msg: Image):
-        if self.mode != "cal_f":
-            return
+        if self.mode == "cal_f":
+            if self.T_FcamBoard is not None:
+                self.get_logger().info("Calibrating T_FcamBoard...")
+                self.T_FcamBoard = None # turn off publishing while calibrating
+                self.obj_points = []
+                self.img_points = []
 
+            # termination condition
+            if len(self.obj_points) > self.total_calib:
+                self.T_FcamBoard = self.get_cam_pose("cam_f", self.obj_points, self.img_points)
+                self.mode = "none"
+                cv.destroyAllWindows()
+                # also save T_FcamBoard
+                self.get_logger().info("Calibrated T_FcamBoard. Saving...")
+                np.save("T_FcamBoard.npy", self.T_FcamBoard)
+                return
+
+            img, pts = self.detect_board(msg)
+            if img is None:
+                return
+            # show images
+            cv.imshow("calibration", img)
+            cv.waitKey(1)
+
+            # save calibration points
+            if pts is not None:
+                self.obj_points.append(pts[0])
+                self.img_points.append(pts[1])
         
 
     def cb_acam(self, msg: Image):
         if self.mode == "cal_a":
-            pass
+            if self.T_AcamBoard is not None:
+                self.get_logger().info("Calibrating T_AcamBoard...")
+                self.T_AcamBoard = None # turn off publishing while calibrating
+                self.obj_points = []
+                self.img_points = []
+
+            # termination condition
+            if len(self.obj_points) > self.total_calib:
+                self.T_AcamBoard = self.get_cam_pose("cam_a", self.obj_points, self.img_points)
+                self.mode = "none"
+                cv.destroyAllWindows()
+                # also save T_FcamBoard
+                self.get_logger().info("Calibrated T_AcamBoard. Saving...")
+                np.save("T_AcamBoard.npy", self.T_AcamBoard)
+                return
+
+            img, pts = self.detect_board(msg)
+            if img is None:
+                return
+            # show images
+            cv.imshow("calibration", img)
+            cv.waitKey(1)
+
+            # save calibration points
+            if pts is not None:
+                self.obj_points.append(pts[0])
+                self.img_points.append(pts[1])
+
+
+        
         elif self.mode == "cal_handeye":
-            # TODO: this may be hard to align with the 
-            # forward kinematics
-            # probably want to use a message filter (TODO)
-            pass
+            # solve hand-eye and publish if able
+            if len(self.poses["AcamBoard"]) >= 3 and (not self.handeye_updated):
+                R_gripper2base, t_gripper2base = [], []
+                R_target2cam, t_target2cam = [], []
+                for T_AB, T_CG in zip(self.poses["AcamBoard"], self.poses["BaseGripper"]):
+                    # my convention is the reverse of the opencv one
+                    # T_BA  means transform arm2board (arm=cam, board=target)
+                    R_gripper2base.append(T_CG[:3,:3])
+                    t_gripper2base.append(T_CG[:3,3].reshape([3,1]))
+                    R_target2cam.append(T_AB[:3,:3])
+                    t_target2cam.append(T_AB[:3,3].reshape([3,1]))
+
+                # compute calibration
+                R_cam2grip, t_cam2grip = cv.calibrateHandEye(
+                    R_gripper2base, t_gripper2base, R_target2cam, t_target2cam,
+                    method=cv.CALIB_HAND_EYE_TSAI
+                )
+
+                # save / publish
+                self.T_AcamGripper = T(R_cam2grip, t_cam2grip)
+                self.handeye_updated = True
+                
+                self.get_logger().info("Calibrated T_AcamGripper. Saving...")
+                np.save("T_AcamGripper.npy", self.T_AcamGripper)
+                return
+
+            img, pts = self.detect_board(msg)
+            if img is None:
+                return
+            # show images
+            cv.imshow("calibration", img)
+            key = cv.waitKey(1)
+
+            # calibrate if 'c' is pressed
+            if key == 'c':
+                # check for board
+                # TODO: this may not be enough points for an accurate pnp...
+                if pts is None:
+                    return
+                T_AcamBoard = self.get_cam_pose("cam_a", self.obj_points, self.img_points)
+
+                # get forward kinematics of robot
+                # TODO: don't handle failures very well
+                T_BaseGripper = self.tf_buffer.lookup_transform(
+                    'nero_right/base_link',
+                    'nero_right/gripper_base',
+                    msg.header.stamp
+                )
+
+                # save
+                self.poses["AcamBoard"].append(T_AcamBoard)
+                self.poses["BaseGripper"].append(T_BaseGripper)
+                self.handeye_updated = False
 
     
 
 
-    def detect_board(self, cam_name):
-        pass
+    def detect_board(self, msg: Image):
+        """
+        Get current camera image and detect
+        calibration board.
+
+        Returns None if board not detected
+        """
+        img = self.bridge.imgmsg_to_cv2(msg, encoding="passthrough")
+        if img is None:
+            return None, None
+
+        grey = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        # find board markers
+        ret, corners = cv.findChessboardCorners(grey, BOARD_SIZE, None)
+        if not ret:
+            return img, None
+        
+        # collect image/corner points
+        obj_points = CHESS_OBJ_PTS
+        img_points = cv.cornerSubPix(grey, corners, (11,11), (-1,-1), CHESS_CRITERIA)
+        img = cv.drawChessboardCorners(img, BOARD_SIZE, img_points, ret)
+
+        return img, (obj_points, img_points)
 
     def get_cam_pose(self, cam_name, objpoints, imgpoints):
         """
@@ -214,8 +361,8 @@ class CalibrationNode(Node):
         ok, rvec, tvec, err = cv.solvePnPGeneric(
             all_object_points,
             all_image_points,
-            camK,
-            camdc,
+            self.K[cam_name],
+            self.D[cam_name],
             flags=cv.SOLVEPNP_ITERATIVE #cv.SOLVEPNP_SQPNP
         )
         if not ok:
@@ -228,8 +375,8 @@ class CalibrationNode(Node):
             all_object_points,
             rvec[0],
             tvec[0],
-            camK,
-            camdc
+            self.K[cam_name],
+            self.D[cam_name]
         )
         err = img_pred.reshape(-1, 2) - all_image_points.reshape(-1, 2)
         rmse = np.sqrt(np.mean(np.sum(err**2, axis=1)))
