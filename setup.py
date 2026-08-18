@@ -30,6 +30,7 @@ setup(
             'pcd_publisher = analytic_grasp_ros.pcd_publisher:main',
             'grasp_selection = analytic_grasp_ros.grasp_selection:main',
             'calibration_publisher = analytic_grasp_ros.calibration_publisher:main',
+            'calibrate = analytic_grasp_ros.calibrate:main'
         ],
     },
 )

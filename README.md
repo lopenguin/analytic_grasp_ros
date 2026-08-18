@@ -1,6 +1,61 @@
 # Analytic Grasping with Nero Arms
 
-## Visualize the arm in rviz
+## Standard Launch Procedure
+First, start the arm controller and camera:
+```bash
+ros2 launch agx_arm_ctrl start_nero_aloha.launch.py mode:=1 auto_enable:=true &
+ros2 launch orbbec_camera multi_camera.launch.py \
+  front_serial:="CC1WC5200NX" \
+  left_serial:="CC1WC5201L8" \
+  right_serial:="CC1WC520126"
+```
+(make sure to type `fg` when closing to kill both of these launches!)
+
+Optionally, launch rviz to view what is going on:
+```bash
+# ros2 launch analytic_grasp_ros view.launch.py config:=view_pcd.rviz
+ros2 launch analytic_grasp_ros view.launch.py config:=view_r.rviz
+```
+
+Then, launch all the grasping infrastructure:
+TODO: currently this does not work without rviz! (due to some frame weirdness with gripper_palm...)
+```bash
+ros2 launch analytic_grasp_ros analytic.launch.py
+```
+
+## Robot calibration
+First, start the arm controller and camera:
+```bash
+ros2 launch agx_arm_ctrl start_nero_aloha.launch.py mode:=1 auto_enable:=true &
+ros2 launch orbbec_camera multi_camera.launch.py \
+  front_serial:="CC1WC5200NX" \
+  left_serial:="CC1WC5201L8" \
+  right_serial:="CC1WC520126"
+```
+
+Plug the leader arm in, so that you have full control over the arm position. Then, move the calibration board to a place where it can be seen by the front camera.
+
+Now we are ready to calibrate:
+```bash
+cd ~/lorenzo/grasp_ws/src/analytic_grasp_ros/analytic_grasp_ros
+ipython calibrate.py
+```
+
+To calibrate, use `ros2 param set /hand_eye_calibration mode "cal_f"` (or cal_a, cal_handeye). To view in rviz:
+```bash
+ros2 launch analytic_grasp_ros view.launch.py config:=view_r.rviz
+```
+
+
+
+## TODO
+- fix the weird publishing to "gripper" when the robot is in teach mode
+- node to command the arm to go to grasp position (and stop without ctrl+c)
+
+
+
+## Older Stuff
+### Visualize the arm in rviz
 First, launch the arm state publisher (mode=1 to only publish)
 ```
 ros2 launch agx_arm_ctrl start_nero_aloha.launch.py mode:=1 auto_enable:=true
@@ -13,7 +68,7 @@ ros2 launch agx_arm_description display.launch.py namespace:=nero_right
 
 The default settings connect to the right gripper; change this to `nero_left` for the left gripper. See the launch file for more config options.
 
-## Nodes
+### Nodes
 Point cloud publisher:
 ```
 ros2 run analytic_grasp_ros pcd_publisher --ros-args -p pcd_file:=/home/agilex/lorenzo/analytic/pickmeup.pcd
@@ -32,7 +87,7 @@ ros2 run analytic_grasp_ros grasp_selection
 ```
 Reads a point cloud message and computes analytic grasps. Publishes them to the tf tree.
 
-## Gripper visualization
+### Gripper visualization
 To add in gripper visualizations, first run a robot state publisher for the gripper:
 ```
 ros2 run robot_state_publisher robot_state_publisher \
@@ -48,28 +103,6 @@ ros2 run tf2_ros static_transform_publisher \
     grasp_candidate_00 no0/gripper_flange
 ```
 
-## Launch
-First, start the arm controller and camera:
-```bash
-ros2 launch agx_arm_ctrl start_nero_aloha.launch.py mode:=1 auto_enable:=true &
-ros2 launch orbbec_camera multi_camera.launch.py \
-  front_serial:="CC1WC5200NX" \
-  left_serial:="CC1WC5201L8" \
-  right_serial:="CC1WC520126"
-```
-(make sure to type `fg` when closing to kill both of these launches!)
-
-Optionally, launch rviz to view what is going on:
-```bash
-ros2 launch analytic_grasp_ros view.launch.py
-# ros2 launch analytic_grasp_ros view.launch.py config:=view_r.rviz
-```
-
-Then, launch all the grasping infrastructure:
-TODO: currently this does not work without rviz! (due to some frame weirdness with gripper_palm...)
-```bash
-ros2 launch analytic_grasp_ros analytic.launch.py
-```
 
 
 
@@ -84,7 +117,3 @@ TODO:
 This was very helpful: https://github.com/MetroRobots/rosetta_launch
 
 
-
-
-## TODO
-- visualize candidate grasps in rviz (need new node)

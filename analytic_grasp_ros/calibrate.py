@@ -37,17 +37,18 @@ def T(R, t):
 
 def Tmsg_to_T(msg: TransformStamped):
     t = msg.transform.translation
+    t = np.array([t.x, t.y, t.z])
     q = msg.transform.rotation
     quat = np.array([float(q.x), float(q.y), float(q.z), float(q.w)])
-    R = Rot.from_quat(quat)
+    R = Rot.from_quat(quat).as_matrix()
     return T(R, t)
 
 def T_to_Tmsg(T) -> Transform:
     transform = Transform()
-    transform.translation.x = float(T[3,0])
-    transform.translation.y = float(T[3,1])
-    transform.translation.z = float(T[3,2])
-    q = Rot.as_quat(T[:3,:3])
+    transform.translation.x = float(T[0,3])
+    transform.translation.y = float(T[1,3])
+    transform.translation.z = float(T[2,3])
+    q = Rot.as_quat(Rot.from_matrix(T[:3,:3]))
     transform.rotation.x = float(q[0])
     transform.rotation.y = float(q[1])
     transform.rotation.z = float(q[2])
@@ -99,26 +100,19 @@ class CalibrationNode(Node):
         self.sub_acam_info = self.create_subscription(
             CameraInfo, "camera_r/color/camera_info", self.cb_acam_info, 1)
         self.sub_fcam = self.create_subscription(
-            CameraInfo, "camera_f/color/image_raw", self.cb_fcam, qos_profile_sensor_data)
+            Image, "camera_f/color/image_raw", self.cb_fcam, qos_profile_sensor_data)
         self.sub_acam = self.create_subscription(
-            CameraInfo, "camera_r/color/image_raw", self.cb_acam, qos_profile_sensor_data)
+            Image, "camera_r/color/image_raw", self.cb_acam, qos_profile_sensor_data)
         
         # a publish timer
         publish_period_sec = 1.0
         self.tf_pub_timer = self.create_timer(publish_period_sec, self.pub_tfs)
 
-        # TODO: not using this!
-        # 1) calibrate front camera relative to fixed board
-        # self.T_FcamBoard = self.calibrate_camera("camera_f")
-
-        # # 2) calibrate arm camera relative to fixed board
-        # self.T_AcamBoard = self.calibrate_camera("camera_r")
-
-        # # 3) calibrate arm camera to gripper (will require moving the arm)
-        # self.T_AcamGripper = self.calibrate_handeye()
+        self.get_logger().info("Node started. Use ros2 param set /hand_eye_calibration mode 'cal_f'/'cal_a'/'cal_handeye' to start.")
 
 
     def pub_tfs(self):
+        self.mode = self.get_parameter('mode').get_parameter_value().string_value
         transforms = []
 
         if self.T_FcamBoard is not None:
@@ -133,7 +127,7 @@ class CalibrationNode(Node):
 
             # publish
             transform = TransformStamped()
-            transform.header.stamp = self.get_clock().now().to_msg
+            transform.header.stamp = self.get_clock().now().to_msg()
             transform.header.frame_id = "calibration_board"
             transform.child_frame_id = "camera_f_link"
             transform.transform = T_to_Tmsg(T_BoardFcamlink)
@@ -152,7 +146,7 @@ class CalibrationNode(Node):
 
             # publish
             transform = TransformStamped()
-            transform.header.stamp = self.get_clock().now().to_msg
+            transform.header.stamp = self.get_clock().now().to_msg()
             transform.header.frame_id = "calibration_board"
             transform.child_frame_id = "camera_r_link"
             transform.transform = T_to_Tmsg(T_BoardAcamlink)
@@ -171,7 +165,7 @@ class CalibrationNode(Node):
 
             # publish
             transform = TransformStamped()
-            transform.header.stamp = self.get_clock().now().to_msg
+            transform.header.stamp = self.get_clock().now().to_msg()
             transform.header.frame_id = "nero_right/gripper_base" # TODO: base or flange?
             transform.child_frame_id = "camera_r_link"
             transform.transform = T_to_Tmsg(T_GripperbaseAcamlink)
@@ -200,34 +194,38 @@ class CalibrationNode(Node):
 
     ## Camera image subscribers!
     def cb_fcam(self, msg: Image):
-        if self.mode == "cal_f":
-            if self.T_FcamBoard is not None:
-                self.get_logger().info("Calibrating T_FcamBoard...")
-                self.T_FcamBoard = None # turn off publishing while calibrating
-                self.obj_points = []
-                self.img_points = []
+        if self.mode != "cal_f":
+            return
+        
+        if self.T_FcamBoard is not None:
+            self.get_logger().info("Calibrating T_FcamBoard...")
+            self.T_FcamBoard = None # turn off publishing while calibrating
+            self.obj_points = []
+            self.img_points = []
 
-            # termination condition
-            if len(self.obj_points) > self.total_calib:
-                self.T_FcamBoard = self.get_cam_pose("cam_f", self.obj_points, self.img_points)
-                self.mode = "none"
-                cv.destroyAllWindows()
-                # also save T_FcamBoard
-                self.get_logger().info("Calibrated T_FcamBoard. Saving...")
-                np.save("T_FcamBoard.npy", self.T_FcamBoard)
-                return
+        # termination condition
+        if len(self.obj_points) > self.total_calib:
+            self.T_FcamBoard = self.get_cam_pose("cam_f", self.obj_points, self.img_points)
+            self.mode = "none"
+            self.set_parameters([rclpy.parameter.Parameter('mode', rclpy.Parameter.Type.STRING, 'none')])
+            cv.destroyAllWindows()
+            # also save T_FcamBoard
+            print(self.T_FcamBoard)
+            self.get_logger().info("Calibrated T_FcamBoard. Saving...")
+            np.save("T_FcamBoard.npy", self.T_FcamBoard)
+            return
 
-            img, pts = self.detect_board(msg)
-            if img is None:
-                return
-            # show images
-            cv.imshow("calibration", img)
-            cv.waitKey(1)
+        img, pts = self.detect_board(msg)
+        if img is None:
+            return
+        # show images
+        cv.imshow("calibration", img)
+        cv.waitKey(1)
 
-            # save calibration points
-            if pts is not None:
-                self.obj_points.append(pts[0])
-                self.img_points.append(pts[1])
+        # save calibration points
+        if pts is not None:
+            self.obj_points.append(pts[0])
+            self.img_points.append(pts[1])
         
 
     def cb_acam(self, msg: Image):
@@ -242,6 +240,7 @@ class CalibrationNode(Node):
             if len(self.obj_points) > self.total_calib:
                 self.T_AcamBoard = self.get_cam_pose("cam_a", self.obj_points, self.img_points)
                 self.mode = "none"
+                self.set_parameters([rclpy.parameter.Parameter('mode', rclpy.Parameter.Type.STRING, 'none')])
                 cv.destroyAllWindows()
                 # also save T_FcamBoard
                 self.get_logger().info("Calibrated T_AcamBoard. Saving...")
@@ -294,10 +293,11 @@ class CalibrationNode(Node):
                 return
             # show images
             cv.imshow("calibration", img)
-            key = cv.waitKey(1)
+            key = cv.waitKey(1) & 0xFF
 
             # calibrate if 'c' is pressed
-            if key == 'c':
+            if key == ord('c'):
+                self.get_logger().info("Taking calibration point!")
                 # check for board
                 # TODO: this may not be enough points for an accurate pnp...
                 if pts is None:
@@ -306,15 +306,25 @@ class CalibrationNode(Node):
 
                 # get forward kinematics of robot
                 # TODO: don't handle failures very well
-                T_BaseGripper = self.tf_buffer.lookup_transform(
+                if self.tf_buffer.can_transform(
                     'nero_right/base_link',
                     'nero_right/gripper_base',
                     msg.header.stamp
-                )
+                ):
+                    Tmsg_BaseGripper = self.tf_buffer.lookup_transform(
+                        'nero_right/base_link',
+                        'nero_right/gripper_base',
+                        msg.header.stamp
+                    )
+                    T_BaseGripper = Tmsg_to_T(Tmsg_BaseGripper)
+                else:
+                    self.get_logger().debug(f'Gripper fkin failed... try again')
+                    return
 
                 # save
                 self.poses["AcamBoard"].append(T_AcamBoard)
                 self.poses["BaseGripper"].append(T_BaseGripper)
+                print(len(self.poses["AcamBoard"]))
                 self.handeye_updated = False
 
     
@@ -327,7 +337,7 @@ class CalibrationNode(Node):
 
         Returns None if board not detected
         """
-        img = self.bridge.imgmsg_to_cv2(msg, encoding="passthrough")
+        img = self.bridge.imgmsg_to_cv2(msg) #, encoding="passthrough")
         if img is None:
             return None, None
 
@@ -428,11 +438,6 @@ class CalibrationNode(Node):
 
 
 
-
-    def calibrate_handeye(self):
-        pass
-
-
 def main(args=None):
     rclpy.init(args=args)
 
@@ -450,3 +455,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     sys.exit(main())
+    # main()
