@@ -41,9 +41,9 @@ cd ~/lorenzo/grasp_ws/src/analytic_grasp_ros/analytic_grasp_ros
 ipython calibrate.py
 ```
 
-To calibrate, use `ros2 param set /hand_eye_calibration mode "cal_f"` (or cal_a, cal_handeye). To view in rviz:
+To calibrate, use `ros2 param set /hand_eye_calibration mode "cal_f"` (or cal_a). To view in rviz:
 ```bash
-ros2 launch analytic_grasp_ros view.launch.py config:=view_r.rviz
+ros2 launch analytic_grasp_ros view.launch.py config:=view_cal.rviz
 ```
 
 

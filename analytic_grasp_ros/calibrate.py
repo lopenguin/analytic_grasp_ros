@@ -93,6 +93,7 @@ class CalibrationNode(Node):
         # helpers for the camera
         self.poses = {"AcamBoard": [], "BaseGripper": []}
         self.handeye_updated = False
+        self.calibrate_handeye = False
 
         # image subscriber
         self.sub_fcam_info = self.create_subscription(
@@ -154,21 +155,14 @@ class CalibrationNode(Node):
 
 
         if self.T_AcamGripper is not None:
-            # publish as gripper_base -> camera_r_link
-            Tmsg_AcamlinkAcam = self.tf_buffer.lookup_transform(
-                'camera_r_link',
-                'camera_r_color_optical_frame',
-                rclpy.time.Time()
-            )
-            T_AcamlinkAcam = Tmsg_to_T(Tmsg_AcamlinkAcam)
-            T_GripperbaseAcamlink = np.linalg.inv(T_AcamlinkAcam @ self.T_AcamGripper)
+            T_GripperbaseBoard_throughAcam = np.linalg.inv(self.T_AcamGripper) @ self.T_AcamBoard
 
             # publish
             transform = TransformStamped()
             transform.header.stamp = self.get_clock().now().to_msg()
-            transform.header.frame_id = "nero_right/gripper_base" # TODO: base or flange?
-            transform.child_frame_id = "camera_r_link"
-            transform.transform = T_to_Tmsg(T_GripperbaseAcamlink)
+            transform.header.frame_id = "nero_right/gripper_base"
+            transform.child_frame_id = "calibration_board"
+            transform.transform = T_to_Tmsg(T_GripperbaseBoard_throughAcam)
             transforms.append(transform)
 
         # publish!
@@ -229,105 +223,90 @@ class CalibrationNode(Node):
         
 
     def cb_acam(self, msg: Image):
-        if self.mode == "cal_a":
-            if self.T_AcamBoard is not None:
-                self.get_logger().info("Calibrating T_AcamBoard...")
-                self.T_AcamBoard = None # turn off publishing while calibrating
-                self.obj_points = []
-                self.img_points = []
+        if self.mode != "cal_a":
+            return
 
-            # termination condition
-            if len(self.obj_points) > self.total_calib:
-                self.T_AcamBoard = self.get_cam_pose("cam_a", self.obj_points, self.img_points)
-                self.mode = "none"
-                self.set_parameters([rclpy.parameter.Parameter('mode', rclpy.Parameter.Type.STRING, 'none')])
-                cv.destroyAllWindows()
-                # also save T_FcamBoard
-                self.get_logger().info("Calibrated T_AcamBoard. Saving...")
-                np.save("T_AcamBoard.npy", self.T_AcamBoard)
-                return
+        if not self.calibrate_handeye:
+            # self.get_logger().info("Press c to take next calibration point")
+            # self.T_AcamBoard = None # turn off publishing while calibrating
+            self.obj_points = []
+            self.img_points = []
 
-            img, pts = self.detect_board(msg)
-            if img is None:
-                return
-            # show images
-            cv.imshow("calibration", img)
-            cv.waitKey(1)
-
-            # save calibration points
-            if pts is not None:
-                self.obj_points.append(pts[0])
-                self.img_points.append(pts[1])
-
-
-        
-        elif self.mode == "cal_handeye":
-            # solve hand-eye and publish if able
-            if len(self.poses["AcamBoard"]) >= 3 and (not self.handeye_updated):
-                R_gripper2base, t_gripper2base = [], []
-                R_target2cam, t_target2cam = [], []
-                for T_AB, T_CG in zip(self.poses["AcamBoard"], self.poses["BaseGripper"]):
-                    # my convention is the reverse of the opencv one
-                    # T_BA  means transform arm2board (arm=cam, board=target)
-                    R_gripper2base.append(T_CG[:3,:3])
-                    t_gripper2base.append(T_CG[:3,3].reshape([3,1]))
-                    R_target2cam.append(T_AB[:3,:3])
-                    t_target2cam.append(T_AB[:3,3].reshape([3,1]))
-
-                # compute calibration
-                R_cam2grip, t_cam2grip = cv.calibrateHandEye(
-                    R_gripper2base, t_gripper2base, R_target2cam, t_target2cam,
-                    method=cv.CALIB_HAND_EYE_TSAI
-                )
-
-                # save / publish
-                self.T_AcamGripper = T(R_cam2grip, t_cam2grip)
-                self.handeye_updated = True
-                
-                self.get_logger().info("Calibrated T_AcamGripper. Saving...")
-                np.save("T_AcamGripper.npy", self.T_AcamGripper)
-                return
-
-            img, pts = self.detect_board(msg)
-            if img is None:
-                return
-            # show images
-            cv.imshow("calibration", img)
-            key = cv.waitKey(1) & 0xFF
-
-            # calibrate if 'c' is pressed
-            if key == ord('c'):
-                self.get_logger().info("Taking calibration point!")
-                # check for board
-                # TODO: this may not be enough points for an accurate pnp...
-                if pts is None:
-                    return
-                T_AcamBoard = self.get_cam_pose("cam_a", self.obj_points, self.img_points)
-
-                # get forward kinematics of robot
-                # TODO: don't handle failures very well
-                if self.tf_buffer.can_transform(
+        # termination condition for PnP
+        if len(self.obj_points) > self.total_calib:
+            # get current gripper pose
+            if self.tf_buffer.can_transform(
                     'nero_right/base_link',
                     'nero_right/gripper_base',
                     msg.header.stamp
-                ):
-                    Tmsg_BaseGripper = self.tf_buffer.lookup_transform(
-                        'nero_right/base_link',
-                        'nero_right/gripper_base',
-                        msg.header.stamp
-                    )
-                    T_BaseGripper = Tmsg_to_T(Tmsg_BaseGripper)
-                else:
-                    self.get_logger().debug(f'Gripper fkin failed... try again')
-                    return
+            ):
+                Tmsg_BaseGripper = self.tf_buffer.lookup_transform(
+                    'nero_right/base_link',
+                    'nero_right/gripper_base',
+                    msg.header.stamp
+                )
+                T_BaseGripper = Tmsg_to_T(Tmsg_BaseGripper)
+            else:
+                self.get_logger().debug(f'Gripper fkin failed... trying again')
+                return
 
-                # save
-                self.poses["AcamBoard"].append(T_AcamBoard)
-                self.poses["BaseGripper"].append(T_BaseGripper)
-                print(len(self.poses["AcamBoard"]))
-                self.handeye_updated = False
+            # get current camera pose
+            self.T_AcamBoard = self.get_cam_pose("cam_a", self.obj_points, self.img_points)
+            self.get_logger().info("Recorded a calibration point!")
 
+            # save these
+            self.poses["AcamBoard"].append(self.T_AcamBoard)
+            self.poses["BaseGripper"].append(T_BaseGripper)
+            self.calibrate_handeye = False
+
+            print(len(self.poses["AcamBoard"]))
+            self.handeye_updated = False
+            return
+        
+        # solve hand-eye and publish if able
+        if len(self.poses["AcamBoard"]) >= 3 and (not self.handeye_updated):
+            R_gripper2base, t_gripper2base = [], []
+            R_target2cam, t_target2cam = [], []
+            for T_AB, T_CG in zip(self.poses["AcamBoard"], self.poses["BaseGripper"]):
+                # my convention is the reverse of the opencv one
+                # T_BA  means transform arm2board (arm=cam, board=target)
+                R_gripper2base.append(T_CG[:3,:3])
+                t_gripper2base.append(T_CG[:3,3].reshape([3,1]))
+                R_target2cam.append(T_AB[:3,:3])
+                t_target2cam.append(T_AB[:3,3].reshape([3,1]))
+
+            # compute calibration
+            R_cam2grip, t_cam2grip = cv.calibrateHandEye(
+                R_gripper2base, t_gripper2base, R_target2cam, t_target2cam,
+                method=cv.CALIB_HAND_EYE_TSAI
+            )
+
+            # save / publish
+            self.T_AcamGripper = T(R_cam2grip, t_cam2grip)
+            self.handeye_updated = True
+            
+            self.get_logger().info("Calibrated T_AcamGripper. Saving...")
+            np.save("T_AcamGripper.npy", self.T_AcamGripper)
+            return
     
+        # detect the board and gather board points
+        img, pts = self.detect_board(msg)
+        if img is None:
+            return
+        # show images
+        cv.imshow("calibration", img)
+        key = cv.waitKey(1) & 0xFF
+
+        # only calibrate if the key was c
+        if key == ord('c'):
+            self.get_logger().info("c pressed!")
+            self.calibrate_handeye = True
+        
+        if self.calibrate_handeye:
+            # save pnp calibration points
+            if pts is not None:
+                self.obj_points.append(pts[0])
+                self.img_points.append(pts[1])
 
 
     def detect_board(self, msg: Image):
