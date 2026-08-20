@@ -734,9 +734,27 @@ class GraspSelection(Node):
         # optionally execute the pose!
         publish_number = self.get_parameter('execute_number').get_parameter_value().integer_value
         if publish_number >= 0:
-            X_BG = ranked[publish_number][1]
+            # there's a rotation offset too
+            X_OG = np.eye(4)
+            # map x->y, y->z, z->x
+            X_OG[:3,:3] = np.array([[0., 0., 1.],
+                                    [1., 0., 0.],
+                                    [0., 1., 0.]]).T
+            # TODO: incorporate this into commanding the arm!!
+
+            # lookup transform from palm to link7
+            transform_GL7 = self.tf_buffer.lookup_transform(
+                f"{self.namespace}/gripper_palm",
+                f"{self.namespace}/link7",
+                self.get_clock().now().to_msg(),
+            )
+            X_GL7 = transform_msg_to_matrix(transform_GL7)
+
+            X_BO = ranked[publish_number][1]
+            X_BL7 = X_BO @ X_OG @ X_GL7
+            # X_BF = X_BG @ X_GF
             # TODO: this seems to publish in the wrong frame!
-            self.pub_move.publish(self.pose_from_matrix(ranked[publish_number][1], stamp))
+            self.pub_move.publish(self.pose_from_matrix(X_BL7, stamp))
 
     def publish_static_gripper_tfs(self):
         stamp = self.get_clock().now().to_msg()

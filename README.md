@@ -23,6 +23,11 @@ TODO: currently this does not work without rviz! (due to some frame weirdness wi
 ros2 launch analytic_grasp_ros analytic.launch.py
 ```
 
+Lastly, to execute a given grasp:
+```bash
+ros2 param set grasp_selection execute_number 0
+```
+
 ## Robot calibration
 First, start the arm controller and camera:
 ```bash
