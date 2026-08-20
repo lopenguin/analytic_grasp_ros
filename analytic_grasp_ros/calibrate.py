@@ -280,14 +280,26 @@ class CalibrationNode(Node):
                 R_gripper2base, t_gripper2base, R_target2cam, t_target2cam,
                 method=cv.CALIB_HAND_EYE_TSAI
             )
+            T_GripperAcam = T(R_cam2grip, t_cam2grip)
+            # print residuals!
+            Tref_BoardBase = np.linalg.inv(self.poses["BaseGripper"][0] @ T_GripperAcam @ self.poses["AcamBoard"][0])
+            for Ti_AcamBoard, Ti_BaseGripper in zip(self.poses["AcamBoard"], self.poses["BaseGripper"]):
+                Ti_BaseBoard = Ti_BaseGripper @ T_GripperAcam @ Ti_AcamBoard
+                E = Ti_BaseBoard @ Tref_BoardBase  # should be identity
+                dt = np.linalg.norm(E[:3, 3])
+                dr = np.degrees(np.arccos(np.clip((np.trace(E[:3, :3]) - 1) / 2, -1, 1)))
+                print(f"resid: {dt*1000:.1f} mm, {dr:.2f} deg")
 
             # save / publish
-            T_GripperAcam = T(R_cam2grip, t_cam2grip)
             self.T_AcamGripper = np.linalg.inv(T_GripperAcam)
             self.handeye_updated = True
             
             self.get_logger().info("Calibrated T_AcamGripper. Saving...")
             np.save("T_AcamGripper.npy", self.T_AcamGripper)
+
+            # compute T_FcamBase and save
+            T_FcamBase = self.T_FcamBoard @ np.linalg.inv(self.T_AcamBoard) @ self.T_AcamGripper @ np.linalg.inv(T_BaseGripper)
+            np.save("T_FcamBase.npy", T_FcamBase)
             return
     
         # detect the board and gather board points

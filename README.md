@@ -27,6 +27,7 @@ Lastly, to execute a given grasp:
 ```bash
 ros2 param set grasp_selection execute_number 0
 ```
+The movement may not work! If so, blame Aryan.
 
 ## Robot calibration
 First, start the arm controller and camera:
@@ -55,7 +56,7 @@ ros2 launch analytic_grasp_ros view.launch.py config:=view_cal.rviz
 
 ## TODO
 - fix the weird publishing to "gripper" when the robot is in teach mode (Aryan may have done this for us!)
-- node to command the arm to go to grasp position (and stop without ctrl+c)
+- LOAD THE NEW CALIBRATION!!
 
 
 

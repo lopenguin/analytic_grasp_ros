@@ -92,7 +92,9 @@ class CalibrationPublisher(Node):
     def __init__(self):
         super().__init__('calibration_publisher')
 
-        self.declare_parameter("transforms", "/home/agilex/lorenzo/calibration/calibration_2026-08-13_15-48-12.yaml")
+        # self.declare_parameter("transforms", "/home/agilex/lorenzo/calibration/calibration_2026-08-13_15-48-12.yaml")
+        self.declare_parameter("transforms", "/home/agilex/lorenzo/calibration/data")
+
 
         self.yaml_file = self.get_parameter("transforms").value
         print(self.yaml_file)
@@ -137,9 +139,17 @@ class CalibrationPublisher(Node):
         T_camr0_A = transform_msg_to_matrix(camr0_camroptical)
         
 
-
-        with open(self.yaml_file, 'r') as file:
-            data = yaml.safe_load(file)
+        # Load calibration data
+        # YAML (deprecated)
+        # with open(self.yaml_file, 'r') as file:
+        #     data = yaml.safe_load(file)
+        # from folder (current)
+        # tf_AcamBoard = np.load(f"{self.yaml_file}/T_AcamBoard.npy")
+        tf_AcamGripper = np.load(f"{self.yaml_file}/T_AcamGripper.npy")
+        tf_FcamBase = np.load(f"{self.yaml_file}/T_FcamBase")
+        # tf_FcamBoard = np.load(f"{self.yaml_file}/tf_FcamBoard.npy")
+        data = {"tf_AG": tf_AcamGripper,
+                "tf_FC": tf_FcamBase}
 
         result = []
         for key, entry in data.items():
@@ -149,7 +159,8 @@ class CalibrationPublisher(Node):
                     child = "camera_r_link"
 
                     # G = gripper flange
-                    tf_AG = np.array(entry)
+                    # tf_AG = np.array(entry)
+                    tf_AG = entry
                     tf_G_camr0 = np.linalg.inv(T_camr0_A @ tf_AG)
                     matrix = tf_G_camr0
 
@@ -159,11 +170,12 @@ class CalibrationPublisher(Node):
 
                     # C = base_link
                     # tf_FC = np.array(entry)
-                    tf_CF = np.array([[-0.036,  0.542, -0.839,  0.005],
-                                      [0.999,  0.031, -0.023, -0.306],
-                                      [0.014, -0.840, -0.543,  0.503],
-                                      [0.000,  0.000,  0.000,  1.000]])
-                    tf_FC = np.linalg.inv(tf_CF)
+                    # tf_CF = np.array([[-0.036,  0.542, -0.839,  0.005],
+                    #                   [0.999,  0.031, -0.023, -0.306],
+                    #                   [0.014, -0.840, -0.543,  0.503],
+                    #                   [0.000,  0.000,  0.000,  1.000]])
+                    # tf_FC = np.linalg.inv(tf_CF)
+                    tf_FC = entry
                     tf_C_camf0 = np.linalg.inv(T_camf0_F @ tf_FC)
                     matrix = tf_C_camf0
                 else:

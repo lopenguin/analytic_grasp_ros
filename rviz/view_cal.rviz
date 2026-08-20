@@ -363,16 +363,51 @@ Visualization Manager:
         Value: /camera_r/color/image_raw
       Value: true
       Visibility:
+        Depth (cam_a): true
         Depth (cam_f): true
         Grid: true
         RobotModel: true
         TF: true
         Value: true
       Zoom Factor: 1
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 0.33459341526031494
+        Min Value: -0.6924869418144226
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz_default_plugins/PointCloud2
+      Color: 28; 113; 216
+      Color Transformer: FlatColor
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 192; 28; 40
+      Max Intensity: 4096
+      Min Color: 192; 28; 40
+      Min Intensity: 0
+      Name: Depth (cam_a)
+      Position Transformer: XYZ
+      Selectable: true
+      Size (Pixels): 2
+      Size (m): 0.0010000000474974513
+      Style: Flat Squares
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /camera_r/depth/points
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: nero_right/world
+    Fixed Frame: camera_f_link
     Frame Rate: 30
   Name: root
   Tools:
@@ -415,25 +450,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 1.2532403469085693
+      Distance: 1.3573498725891113
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.08670635521411896
-        Y: -0.3284127116203308
-        Z: 0.2435176521539688
+        X: 0.4133739471435547
+        Y: -0.1421201080083847
+        Z: -0.12338647246360779
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8302028775215149
+      Pitch: 0.2602027356624603
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.6458159685134888
+      Yaw: 4.8889994621276855
     Saved: ~
 Window Geometry:
   Camera:
