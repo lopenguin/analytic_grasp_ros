@@ -437,6 +437,7 @@ class GraspSelection(Node):
         self.declare_parameter("process_once", True)
         self.declare_parameter("publish_period", 0.25)
         self.declare_parameter("publish_gripper_tfs", False)
+        self.declare_parameter("execute_number", -1)
 
         # Optional: publishes each candidate as PoseStamped too.
         # TF itself remains published on /tf.
@@ -512,6 +513,8 @@ class GraspSelection(Node):
                 self.publish_period,
                 self.publish_static_gripper_tfs
             )
+
+            self.pub_move = self.create_publisher(PoseStamped, "nero_right/control/move_p", 1)
 
     def setup_subscribers(self):
         """Subscribe to the sensor point-cloud stream."""
@@ -728,6 +731,13 @@ class GraspSelection(Node):
 
         self.tf_broadcaster.sendTransform(transforms)
 
+        # optionally execute the pose!
+        publish_number = self.get_parameter('execute_number').get_parameter_value().integer_value
+        if publish_number >= 0:
+            X_BG = ranked[publish_number][1]
+            # TODO: this seems to publish in the wrong frame!
+            self.pub_move.publish(self.pose_from_matrix(ranked[publish_number][1], stamp))
+
     def publish_static_gripper_tfs(self):
         stamp = self.get_clock().now().to_msg()
         transforms = []
@@ -767,9 +777,6 @@ class GraspSelection(Node):
 
             transforms.append(transform)
             
-
-            
-
         self.tf_broadcaster.sendTransform(transforms)
 
 

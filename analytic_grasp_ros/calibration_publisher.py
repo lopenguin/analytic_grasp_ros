@@ -145,7 +145,6 @@ class CalibrationPublisher(Node):
         for key, entry in data.items():
             try:
                 if key == "tf_AG":
-                    # parent = "nero_right/gripper_flange"
                     parent = "nero_right/gripper_base"
                     child = "camera_r_link"
 
@@ -156,7 +155,6 @@ class CalibrationPublisher(Node):
 
                 elif key == "tf_FC":
                     parent = "nero_right/base_link"
-                    # child = "correction_frame" # 
                     child = "camera_f_link"
 
                     # C = base_link
@@ -200,30 +198,6 @@ class CalibrationPublisher(Node):
 
             # publish
             self.broadcaster.sendTransform(result)
-            # self.get_logger().info(
-            #     f'Published {len(result)} static transform(s)'
-            # )
-
-        # temp: correction frame
-        # because calibration is terrible for some reason!
-        # transform = TransformStamped()
-
-        # transform.header.stamp = self.get_clock().now().to_msg()
-        # transform.header.frame_id = "correction_frame"
-        # transform.child_frame_id = "camera_f_link"
-
-        # transform.transform.translation.x = 0.05
-        # transform.transform.translation.y = 0.042
-        # transform.transform.translation.z = 0.075
-
-        # transform.transform.rotation.x = -0.00045500612703584103
-        # transform.transform.rotation.y = 0.12557053099973609
-        # transform.transform.rotation.z = -0.05698998253520509
-        # transform.transform.rotation.w = 0.9904463522091974
-        # self.broadcaster.sendTransform([transform])
-
-
-        # return result
 
 
 def main(args=None):

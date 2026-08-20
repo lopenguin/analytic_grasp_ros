@@ -3,7 +3,7 @@
 ## Standard Launch Procedure
 First, start the arm controller and camera:
 ```bash
-ros2 launch agx_arm_ctrl start_nero_aloha.launch.py mode:=1 auto_enable:=true &
+ros2 launch agx_arm_ctrl start_nero_aloha.launch.py mode:=0 auto_enable:=true &
 ros2 launch orbbec_camera multi_camera.launch.py \
   front_serial:="CC1WC5200NX" \
   left_serial:="CC1WC5201L8" \
@@ -49,7 +49,7 @@ ros2 launch analytic_grasp_ros view.launch.py config:=view_cal.rviz
 
 
 ## TODO
-- fix the weird publishing to "gripper" when the robot is in teach mode
+- fix the weird publishing to "gripper" when the robot is in teach mode (Aryan may have done this for us!)
 - node to command the arm to go to grasp position (and stop without ctrl+c)
 
 
