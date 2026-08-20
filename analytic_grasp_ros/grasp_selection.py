@@ -43,7 +43,7 @@ CROP_MAX = np.array([0.05, 0.1125, 0.00625])
 
 # Offset, expressed in the gripper frame, from the gripper origin G to the
 # sample point S that we align the grasp against (also from the reference).
-P_GS_G = np.array([0.054 - 0.01, 0.10625, 0.0])
+P_GS_G = np.array([0.054 - 0.01, 0.10625/2, 0.0])
 
 # Roll angles (about the surface normal) tried for each sample, ordered from
 # the center outward, exactly as in the reference notebook.
@@ -781,7 +781,6 @@ class GraspSelection(Node):
             transform.header.stamp = stamp
             transform.header.frame_id = self.grasp_frame_name(k)
             transform.child_frame_id = f"no{k}/gripper_flange"
-            # TODO: should be gripper center or something???
 
             transform.transform.translation.x = float(X_GF[0, 3])
             transform.transform.translation.y = float(X_GF[1, 3])

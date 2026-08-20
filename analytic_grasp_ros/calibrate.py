@@ -282,7 +282,8 @@ class CalibrationNode(Node):
             )
 
             # save / publish
-            self.T_AcamGripper = T(R_cam2grip, t_cam2grip)
+            T_GripperAcam = T(R_cam2grip, t_cam2grip)
+            self.T_AcamGripper = np.linalg.inv(T_GripperAcam)
             self.handeye_updated = True
             
             self.get_logger().info("Calibrated T_AcamGripper. Saving...")
