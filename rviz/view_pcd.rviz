@@ -25,7 +25,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Grasp Object (found-it)
+    SyncSource: ""
 Visualization Manager:
   Class: ""
   Displays:
@@ -90,6 +90,10 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
+        gripper_palm:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         link1:
           Alpha: 1
           Show Axes: false
@@ -142,6 +146,8 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
+        base_link:
+          Value: true
         camera_f_color_frame:
           Value: false
         camera_f_color_optical_frame:
@@ -184,25 +190,13 @@ Visualization Manager:
           Value: false
         camera_r_link:
           Value: false
-        grasp_candidate_00:
-          Value: false
-        grasp_candidate_01:
-          Value: false
-        grasp_candidate_02:
-          Value: false
-        grasp_candidate_03:
-          Value: false
-        grasp_candidate_04:
-          Value: false
         nero_right/base_link:
           Value: true
         nero_right/gripper_base:
           Value: true
         nero_right/gripper_flange:
           Value: true
-        nero_right/gripper_link1:
-          Value: true
-        nero_right/gripper_link2:
+        nero_right/gripper_palm:
           Value: true
         nero_right/link1:
           Value: true
@@ -270,6 +264,8 @@ Visualization Manager:
           Value: false
         no4/gripper_palm:
           Value: false
+        odom:
+          Value: true
       Marker Scale: 0.30000001192092896
       Name: TF
       Show Arrows: true
@@ -278,61 +274,6 @@ Visualization Manager:
       Tree:
         nero_right/world:
           nero_right/base_link:
-            camera_f_link:
-              camera_f_depth_frame:
-                camera_f_color_frame:
-                  camera_f_color_optical_frame:
-                    {}
-                camera_f_depth_optical_frame:
-                  {}
-                camera_f_ir_frame:
-                  camera_f_ir_optical_frame:
-                    {}
-            grasp_candidate_00:
-              no0/gripper_flange:
-                no0/gripper_base:
-                  no0/gripper_link1:
-                    {}
-                  no0/gripper_link2:
-                    {}
-                no0/gripper_palm:
-                  {}
-            grasp_candidate_01:
-              no1/gripper_flange:
-                no1/gripper_base:
-                  no1/gripper_link1:
-                    {}
-                  no1/gripper_link2:
-                    {}
-                no1/gripper_palm:
-                  {}
-            grasp_candidate_02:
-              no2/gripper_flange:
-                no2/gripper_base:
-                  no2/gripper_link1:
-                    {}
-                  no2/gripper_link2:
-                    {}
-                no2/gripper_palm:
-                  {}
-            grasp_candidate_03:
-              no3/gripper_flange:
-                no3/gripper_base:
-                  no3/gripper_link1:
-                    {}
-                  no3/gripper_link2:
-                    {}
-                no3/gripper_palm:
-                  {}
-            grasp_candidate_04:
-              no4/gripper_flange:
-                no4/gripper_base:
-                  no4/gripper_link1:
-                    {}
-                  no4/gripper_link2:
-                    {}
-                no4/gripper_palm:
-                  {}
             nero_right/link1:
               nero_right/link2:
                 nero_right/link3:
@@ -341,21 +282,10 @@ Visualization Manager:
                       nero_right/link6:
                         nero_right/link7:
                           nero_right/gripper_flange:
-                            camera_r_link:
-                              camera_r_depth_frame:
-                                camera_r_color_frame:
-                                  camera_r_color_optical_frame:
-                                    {}
-                                camera_r_depth_optical_frame:
-                                  {}
-                                camera_r_ir_frame:
-                                  camera_r_ir_optical_frame:
-                                    {}
                             nero_right/gripper_base:
-                              nero_right/gripper_link1:
-                                {}
-                              nero_right/gripper_link2:
-                                {}
+                              {}
+                            nero_right/gripper_palm:
+                              {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -422,7 +352,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /pointcloud
+        Value: /object_pcd
       Use Fixed Frame: true
       Use rainbow: true
       Value: true

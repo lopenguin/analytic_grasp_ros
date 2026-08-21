@@ -93,7 +93,7 @@ class CalibrationPublisher(Node):
         super().__init__('calibration_publisher')
 
         # self.declare_parameter("transforms", "/home/agilex/lorenzo/calibration/calibration_2026-08-13_15-48-12.yaml")
-        self.declare_parameter("transforms", "/home/agilex/lorenzo/calibration/data")
+        self.declare_parameter("transforms", "/home/agilex/lorenzo/calibration/save")
 
 
         self.yaml_file = self.get_parameter("transforms").value
@@ -146,7 +146,7 @@ class CalibrationPublisher(Node):
         # from folder (current)
         # tf_AcamBoard = np.load(f"{self.yaml_file}/T_AcamBoard.npy")
         tf_AcamGripper = np.load(f"{self.yaml_file}/T_AcamGripper.npy")
-        tf_FcamBase = np.load(f"{self.yaml_file}/T_FcamBase")
+        tf_FcamBase = np.load(f"{self.yaml_file}/T_FcamBase.npy")
         # tf_FcamBoard = np.load(f"{self.yaml_file}/tf_FcamBoard.npy")
         data = {"tf_AG": tf_AcamGripper,
                 "tf_FC": tf_FcamBase}

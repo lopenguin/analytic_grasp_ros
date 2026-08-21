@@ -13,8 +13,8 @@ ros2 launch orbbec_camera multi_camera.launch.py \
 
 Optionally, launch rviz to view what is going on:
 ```bash
-# ros2 launch analytic_grasp_ros view.launch.py config:=view_pcd.rviz
-ros2 launch analytic_grasp_ros view.launch.py config:=view_r.rviz
+ros2 launch analytic_grasp_ros view.launch.py config:=view_pcd.rviz
+# ros2 launch analytic_grasp_ros view.launch.py config:=view_r.rviz
 ```
 
 Then, launch all the grasping infrastructure:

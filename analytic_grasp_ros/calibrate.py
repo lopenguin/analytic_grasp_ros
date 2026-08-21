@@ -298,6 +298,7 @@ class CalibrationNode(Node):
             np.save("T_AcamGripper.npy", self.T_AcamGripper)
 
             # compute T_FcamBase and save
+            T_BaseGripper = self.poses["BaseGripper"][-1]
             T_FcamBase = self.T_FcamBoard @ np.linalg.inv(self.T_AcamBoard) @ self.T_AcamGripper @ np.linalg.inv(T_BaseGripper)
             np.save("T_FcamBase.npy", T_FcamBase)
             return

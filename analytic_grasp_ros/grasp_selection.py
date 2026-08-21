@@ -427,7 +427,7 @@ class GraspSelection(Node):
         # --------------------------------------------------------------------
         # Parameters
         # --------------------------------------------------------------------
-        self.declare_parameter("pcd_topic", "pointcloud")
+        self.declare_parameter("pcd_topic", "object_pcd") # from file uses /pointcloud
         self.declare_parameter("base_frame", "base_link")
         self.declare_parameter("candidates", 200)
         self.declare_parameter("top_k", 5)
@@ -522,11 +522,12 @@ class GraspSelection(Node):
             PointCloud2,
             self.pcd_topic,
             self.pointcloud_callback,
-            qos_profile_sensor_data,
+            1#qos_profile_sensor_data,
         )
 
     def pointcloud_callback(self, msg: PointCloud2):
         """Process the first usable point cloud, or every cloud if requested."""
+        self.get_logger().info("Received point cloud.")
         with self._lock:
             if self._processing_cloud:
                 return
