@@ -13,6 +13,7 @@ from rclpy.time import Time
 from geometry_msgs.msg import PoseStamped, TransformStamped
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
+from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformBroadcaster, TransformException, TransformListener
 
 
@@ -428,13 +429,13 @@ class GraspSelection(Node):
         # Parameters
         # --------------------------------------------------------------------
         self.declare_parameter("pcd_topic", "object_pcd") # from file uses /pointcloud
-        self.declare_parameter("base_frame", "base_link")
+        self.declare_parameter("base_frame", "world")
         self.declare_parameter("candidates", 200)
         self.declare_parameter("top_k", 5)
         self.declare_parameter("voxel_size", 0.005)
         self.declare_parameter("seed", 0)
         self.declare_parameter("namespace", "nero_right")
-        self.declare_parameter("process_once", True)
+        self.declare_parameter("process_once", False) # default to resample grasps with every point cloud
         self.declare_parameter("publish_period", 0.25)
         self.declare_parameter("publish_gripper_tfs", False)
         self.declare_parameter("execute_number", -1)
@@ -487,10 +488,19 @@ class GraspSelection(Node):
         # --------------------------------------------------------------------
         self.setup_publishers()
         self.setup_subscribers()
+        self.create_service(Trigger, "clear_grasps", self._on_clear_grasps)
 
         self.get_logger().info(
             f"Waiting for PointCloud2 messages on '{self.pcd_topic}'."
         )
+
+    def _on_clear_grasps(self, request, response):
+        """Stop republishing grasp candidates so their TF frames age out."""
+        with self._lock:
+            self.ranked_grasps = []
+        response.success = True
+        response.message = "cleared"
+        return response
 
     def setup_publishers(self):
         """Create the TF broadcaster and optional per-grasp PoseStamped topics."""
