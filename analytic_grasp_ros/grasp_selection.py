@@ -39,7 +39,7 @@ from tf2_ros import Buffer, TransformBroadcaster, TransformException, TransformL
 # the hand closes. These constants are taken verbatim from the reference
 # notebook.
 # ---------------------------------------------------------------------------
-CROP_MIN = np.array([-0.05, 0.1, -0.00625])
+CROP_MIN = np.array([-0.05, 0.01, -0.00625])
 CROP_MAX = np.array([0.05, 0.1125, 0.00625])
 
 # Offset, expressed in the gripper frame, from the gripper origin G to the
@@ -68,7 +68,7 @@ _FINGER_HALF_DEPTH = 0.0125  # half-width of a finger along z
 _FINGER_Y_MIN = 0.02  # palm side of the fingers
 _FINGER_Y_MAX = 0.092  # fingertips
 _FINGER_X_INNER = 0.05  # inner face of finger == edge of closing region
-_PALM_HALF_WIDTH = 0.08  # palm extent along x
+_PALM_HALF_WIDTH = 0.1  # palm extent along x
 _PALM_HALF_DEPTH = 0.021  # palm extent along z
 _PALM_Y_MIN = 0.0
 _PALM_Y_MAX = 0.02
@@ -133,7 +133,7 @@ def grasp_candidate_cost(
     points: np.ndarray,
     normals: np.ndarray,
     adjust_X_G: bool = False,
-    verbose: bool = False,
+    verbose: bool = not False,
 ):
     """Score a grasp pose against the point cloud.
 
@@ -177,21 +177,16 @@ def grasp_candidate_cost(
 
     # Ground plane collision check: any solid part of the gripper goes below
     # the lowest part of the object (with some tolerance)
-    # TODO: this part is broken!
-    # tol = 0.05
-    # p_minz_W = points[np.argmin(points[:,2]), 2] - tol
-    # print(p_minz_W)
-    # for lo, hi in GRIPPER_COLLISION_BOXES:
-    #     lo_W = transform_points(X_G, lo)
-    #     hi_W = transform_points(X_G, hi)
-    #     if lo_W[2] < p_minz_W or hi_W[2] < p_minz_W:
-    #         print(lo_W)
-    #         print(hi_W)
-    #         print(p_minz_W)
-    #         # input()
-    #         if verbose:
-    #             print("cost: inf  (gripper collides with the ground)")
-    #         return np.inf, X_G
+    tol = 0.02 # TODO: adjust this
+    p_minz_W = points[np.argmin(points[:,2]), 2] - tol
+    for lo, hi in GRIPPER_COLLISION_BOXES:
+        lo_W = transform_points(X_G, lo)
+        hi_W = transform_points(X_G, hi)
+        if lo_W[2] < p_minz_W or hi_W[2] < p_minz_W:
+            # input()
+            if verbose:
+                print("cost: inf  (gripper collides with the ground)")
+            return np.inf, X_G
 
     # Normals of the grasped points, expressed in the gripper frame.
     n_GC = normals[inside] @ X_GW[:3, :3].T  # (n_inside, 3)
@@ -200,7 +195,7 @@ def grasp_candidate_cost(
     # In the reference this is 20 * R_G[2, 1]: the world-z component of the
     # gripper's +y (approach) axis. For a top-down grasp the approach axis
     # points toward world -z, giving R_G[2,1] = -1 and a reward of -20.
-    cost = 20.0 * X_G[2, 1]
+    cost = 18.0 * X_G[2, 1]
 
     # Reward antipodal alignment: surface normals aligned with the finger
     # closing axis (gripper x). Sum of squared dot products.
@@ -437,7 +432,7 @@ class GraspSelection(Node):
         self.declare_parameter("namespace", "nero_right")
         self.declare_parameter("process_once", False) # default to resample grasps with every point cloud
         self.declare_parameter("publish_period", 0.25)
-        self.declare_parameter("publish_gripper_tfs", False)
+        self.declare_parameter("publish_gripper_tfs", True)
         self.declare_parameter("execute_number", -1)
 
         # Optional: publishes each candidate as PoseStamped too.
@@ -832,3 +827,7 @@ def main(args=None):
 
 if __name__ == "__main__":
     main()
+
+## TODO:
+# - better grasps (trick: make the fingers shorter?)
+# - no collision with ground plane

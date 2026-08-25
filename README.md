@@ -28,6 +28,7 @@ Lastly, to execute a given grasp:
 ros2 param set grasp_selection execute_number 0
 ```
 The movement may not work! If so, blame Aryan.
+If the movement didnt work blame calibration (cough cough Lorenzo)
 
 ## Robot calibration
 First, start the arm controller and camera:
